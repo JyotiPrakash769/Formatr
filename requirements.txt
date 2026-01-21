@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+Pillow
+PyMuPDF
+docx2pdf
+pillow-heif
+svglib
+requests
+PySide6
+python-docx

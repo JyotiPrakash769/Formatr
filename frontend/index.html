@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FORMATR</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>FORMATR</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="theme-toggle">THEME</button>
+                <div id="status">OFFLINE</div>
+            </div>
+        </header>
+
+        <nav class="grid-nav">
+            <button class="nav-btn active" onclick="showPanel('images')">IMAGES</button>
+            <button class="nav-btn" onclick="showPanel('docs')">DOCS</button>
+            <button class="nav-btn" onclick="showPanel('cross')">CROSS</button>
+            <button class="nav-btn" onclick="showPanel('audio')">AUDIO</button>
+            <button class="nav-btn" onclick="showPanel('video')">VIDEO</button>
+        </nav>
+
+        <main id="content">
+            <!-- IMAGE PANEL -->
+            <div id="panel-images" class="panel">
+                <h2>// IMAGE PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>CONVERT</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/image')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-img-conv" class="hidden-input"
+                                accept="image/*,.heic,.heif,.tiff,.svg" required onchange="updateLabel(this)">
+                            <label for="file-img-conv" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="JPG">JPG</option>
+                            <option value="PNG">PNG</option>
+                            <option value="WEBP">WEBP</option>
+                            <option value="TIFF">TIFF</option>
+                            <option value="ICO">ICO</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+                <div class="tool-group">
+                    <h3>COMPRESS</h3>
+                    <form onsubmit="handleConvert(event, '/api/compress/image')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-img-comp" class="hidden-input" accept="image/*"
+                                required onchange="updateLabel(this)">
+                            <label for="file-img-comp" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>SIZE LIMIT (KB):</label>
+                        <input type="number" name="size_kb" value="500">
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+                <div class="tool-group">
+                    <h3>RESIZE IMAGE (SCALE)</h3>
+                    <form onsubmit="handleConvert(event, '/api/resize/image')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-img-resize" class="hidden-input" accept="image/*"
+                                required onchange="handleResizeInput(this)">
+                            <label for="file-img-resize" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <label>SCALE: <span id="resize-val">100%</span></label>
+                            <input type="range" name="percentage" id="resize-slider" min="1" max="100" value="100"
+                                style="width: 100%;" oninput="updateResizeCalc()">
+                        </div>
+
+                        <div id="resize-feedback"
+                            style="font-family: var(--font-heading); margin-top: 10px; font-size: 0.8rem; background: var(--text-color); color: var(--panel-bg); padding: 5px;">
+                            ORIGINAL: - | NEW: -
+                        </div>
+
+                        <button type="submit" style="margin-top: 10px;">RESIZE</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DOC PANEL -->
+            <div id="panel-docs" class="panel" style="display:none;">
+                <h2>// DOCUMENT PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>CONVERT DOCUMENT</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/doc')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-doc-conv" class="hidden-input"
+                                accept=".docx,.txt,.csv" required onchange="updateLabel(this)">
+                            <label for="file-doc-conv" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="pdf">PDF</option>
+                            <option value="docx">DOCX</option>
+                            <option value="txt">TXT</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+                <div class="tool-group">
+                    <h3>PDF TO IMAGES</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/pdf-to-image')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-pdf-img" class="hidden-input" accept=".pdf" required
+                                onchange="updateLabel(this)">
+                            <label for="file-pdf-img" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>FORMAT:</label>
+                        <select name="format">
+                            <option value="png">PNG</option>
+                            <option value="jpg">JPG</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+                <div class="tool-group">
+                    <h3>COMPRESS PDF (QUALITY)</h3>
+                    <form onsubmit="handleConvert(event, '/api/compress/pdf')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-pdf-comp" class="hidden-input" accept=".pdf"
+                                required onchange="updateLabel(this)">
+                            <label for="file-pdf-comp" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <label>QUALITY: <span id="pdf-quality-val">MEDIUM</span></label>
+                            <input type="range" id="pdf-slider" min="0" max="100" value="50" style="width: 100%;"
+                                oninput="updatePdfQuality(this)">
+                            <!-- Hidden input to send 'level' string to backend -->
+                            <input type="hidden" name="level" id="pdf-level-input" value="medium">
+                        </div>
+
+                        <button type="submit">COMPRESS</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- AUDIO PANEL -->
+            <div id="panel-audio" class="panel" style="display:none;">
+                <h2>// AUDIO PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>CONVERT</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/media')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-audio" class="hidden-input" accept="audio/*"
+                                required onchange="updateLabel(this)">
+                            <label for="file-audio" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="mp3">MP3</option>
+                            <option value="wav">WAV</option>
+                            <option value="ogg">OGG</option>
+                            <option value="aac">AAC</option>
+                            <option value="flac">FLAC</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- VIDEO PANEL -->
+            <div id="panel-video" class="panel" style="display:none;">
+                <h2>// VIDEO PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>CONVERT</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/media')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-video" class="hidden-input" accept="video/*"
+                                required onchange="updateLabel(this)">
+                            <label for="file-video" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="mp4">MP4 (H.264)</option>
+                            <option value="mkv">MKV</option>
+                            <option value="webm">WEBM</option>
+                            <option value="avi">AVI</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- CROSS PANEL -->
+            <div id="panel-cross" class="panel" style="display:none;">
+                <h2>// CROSS PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>IMG TO DOC/PDF</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/image-to-pdf', true)">
+                        <!-- Pass true to use dynamic URL based on select -->
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-cross-img" class="hidden-input" accept="image/*"
+                                required onchange="handleResizeInputCross(this)">
+                            <label for="file-cross-img" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE IMAGE</span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <label>SCALE: <span id="cross-resize-val">100%</span></label>
+                            <input type="range" name="percentage" id="cross-resize-slider" min="1" max="100" value="100"
+                                style="width: 100%;" oninput="updateResizeCalcCross()">
+                        </div>
+
+                        <div id="cross-resize-feedback"
+                            style="font-family: var(--font-heading); margin-top: 10px; font-size: 0.8rem; background: var(--text-color); color: var(--panel-bg); padding: 5px;">
+                            ORIGINAL: - | NEW: -
+                        </div>
+
+                        <label style="margin-top: 10px;">OUTPUT FORMAT:</label>
+                        <select id="cross-target-format" onchange="updateCrossFormAction(this)">
+                            <option value="/api/convert/image-to-pdf">PDF</option>
+                            <option value="/api/convert/image-to-docx">DOCX</option>
+                        </select>
+
+                        <button type="submit" style="margin-top: 10px;">CONVERT</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>DOC/PDF TO IMG</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/docx-to-image')">
+                        <!-- DOCX endpoint handles both if pdf sent to it? No, need check logic. Actually simple: DOCX endpoint handles DOCX->PDF->IMG. For PDF input, use existing PDF->IMG endpoint. -->
+                        <!-- Let's simplify: Use one form with dynamic action based on file type or selection? 
+                              Actually, purely for DOCX->IMG we use the new endpoint. 
+                              For PDF->IMG we use existing. 
+                              Let's make this tool specifically for DOCS (DOCX) since PDF->IMG is already in DOC tab? 
+                              User asked for "convert image to pdf / docs and vice versa".
+                              So "DOC/PDF -> IMG".
+                              I'll make this form handle DOCX specifically for now or dynamic.
+                              Let's stick to DOCX -> IMG here as PDF->IMG is in DOC tab. Or Duplicate functionality?
+                              Let's support DOCX here.
+                         -->
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-cross-doc" class="hidden-input" accept=".docx"
+                                required onchange="updateLabel(this)">
+                            <label for="file-cross-doc" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE DOCX</span>
+                            </label>
+                        </div>
+                        <label>FORMAT:</label>
+                        <select name="format">
+                            <option value="png">PNG</option>
+                            <option value="jpg">JPG</option>
+                        </select>
+                        <button type="submit">CONVERT</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="output-log" class="log-panel">
+                <h3>SYSTEM LOG</h3>
+                <pre id="logs">WAITING FOR COMMAND...</pre>
+            </div>
+
+            <div class="status-bar">
+                <div class="path-display" id="path-display">OUTPUT: ~/Downloads/FORMATR_Output</div>
+                <button class="btn-small" onclick="openOutputFolder()">OPEN FOLDER</button>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-container"></div>
+    <script src="app.js"></script>
+</body>
+
+</html>
