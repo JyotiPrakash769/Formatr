@@ -19,12 +19,16 @@ app.add_middleware(
 import sys
 
 # Serve Frontend Static Files
-# Handle PyInstaller _MEIPASS
+# Handle PyInstaller _MEIPASS or Vercel Environment
 if getattr(sys, 'frozen', False):
     bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     frontend_path = os.path.join(bundle_dir, "frontend")
 else:
-    frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+    # Use relative path that works for both local dev (run_app.py) and Vercel (api/index.py)
+    # On Vercel, the file is in /backend/main.py, but execution context might vary.
+    # Safe bet: Go up one level from this file's directory.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    frontend_path = os.path.join(os.path.dirname(current_dir), "frontend")
 
 from backend.api import router as api_router
 app.include_router(api_router, prefix="/api")
