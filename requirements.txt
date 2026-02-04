@@ -16,7 +16,6 @@ xmltodict
 xhtml2pdf
 
 # Phase 1 Extensions
-pandas
 beautifulsoup4
 jsbeautifier
 cssbeautifier

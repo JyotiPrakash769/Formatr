@@ -37,8 +37,6 @@ def build():
         "--hidden-import=reportlab.graphics.barcode.code39",
         "--hidden-import=reportlab.graphics.barcode.usps",
         # Phase 1 hidden imports
-        "--hidden-import=pandas",
-        "--hidden-import=numpy",
         "--hidden-import=openpyxl",
         "--hidden-import=bs4",
         "--hidden-import=jsbeautifier",
@@ -52,7 +50,6 @@ def build():
         "--collect-all=pillow_heif",
         "--collect-all=xhtml2pdf",
         "--collect-all=reportlab",
-        "--collect-all=pandas",
         "--collect-all=openpyxl",
         "--collect-all=py7zr",
         "run_app.py"

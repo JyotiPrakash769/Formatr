@@ -1,23 +1,31 @@
 import os
-import pandas as pd
 import json
+import csv
+import openpyxl
+import xlrd
 
 class DataProcessor:
     @staticmethod
     def csv_to_json(input_path: str, output_dir: str) -> str:
-        """Convert CSV to JSON"""
+        """Convert CSV to JSON without Pandas"""
         filename = os.path.basename(input_path)
         name, _ = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.json")
         
-        df = pd.read_csv(input_path)
-        df.to_json(output_path, orient='records', indent=2)
+        data = []
+        with open(input_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                data.append(row)
         
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+            
         return output_path
     
     @staticmethod
     def json_to_csv(input_path: str, output_dir: str) -> str:
-        """Convert JSON to CSV"""
+        """Convert JSON to CSV without Pandas"""
         filename = os.path.basename(input_path)
         name, _ = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.csv")
@@ -25,59 +33,106 @@ class DataProcessor:
         with open(input_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        df = pd.DataFrame(data)
-        df.to_csv(output_path, index=False)
-        
+        if not data:
+            return output_path
+            
+        keys = data[0].keys()
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=keys)
+            writer.writeheader()
+            writer.writerows(data)
+            
         return output_path
     
     @staticmethod
     def csv_to_excel(input_path: str, output_dir: str) -> str:
-        """Convert CSV to Excel (XLSX)"""
+        """Convert CSV to Excel (XLSX) without Pandas"""
         filename = os.path.basename(input_path)
         name, _ = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.xlsx")
         
-        df = pd.read_csv(input_path)
-        df.to_excel(output_path, index=False, engine='openpyxl')
+        wb = openpyxl.Workbook()
+        ws = wb.active
         
+        with open(input_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                ws.append(row)
+        
+        wb.save(output_path)
         return output_path
     
     @staticmethod
     def excel_to_csv(input_path: str, output_dir: str) -> str:
-        """Convert Excel (XLSX) to CSV"""
+        """Convert Excel (XLSX/XLS) to CSV without Pandas"""
         filename = os.path.basename(input_path)
-        name, _ = os.path.splitext(filename)
+        name, ext = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.csv")
         
-        df = pd.read_excel(input_path, engine='openpyxl')
-        df.to_csv(output_path, index=False)
+        data = []
+        if ext.lower() == '.xls':
+            # Legacy XLS handling
+            rb = xlrd.open_workbook(input_path)
+            sheet = rb.sheet_by_index(0)
+            for row_idx in range(sheet.nrows):
+                data.append(sheet.row_values(row_idx))
+        else:
+            # Modern XLSX handling
+            wb = openpyxl.load_workbook(input_path, data_only=True)
+            ws = wb.active
+            for row in ws.iter_rows(values_only=True):
+                data.append(list(row))
         
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerows(data)
+            
         return output_path
     
     @staticmethod
     def excel_to_json(input_path: str, output_dir: str) -> str:
-        """Convert Excel (XLSX/XLS) to JSON"""
+        """Convert Excel (XLSX/XLS) to JSON without Pandas"""
         filename = os.path.basename(input_path)
         name, ext = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.json")
         
-        # Detect engine based on extension
-        engine = 'xlrd' if ext.lower() == '.xls' else 'openpyxl'
+        rows = []
+        if ext.lower() == '.xls':
+            rb = xlrd.open_workbook(input_path)
+            sheet = rb.sheet_by_index(0)
+            header = sheet.row_values(0)
+            for row_idx in range(1, sheet.nrows):
+                row_data = dict(zip(header, sheet.row_values(row_idx)))
+                rows.append(row_data)
+        else:
+            wb = openpyxl.load_workbook(input_path, data_only=True)
+            ws = wb.active
+            rows_iter = ws.iter_rows(values_only=True)
+            header = next(rows_iter)
+            for row in rows_iter:
+                row_data = dict(zip(header, row))
+                rows.append(row_data)
         
-        df = pd.read_excel(input_path, engine=engine)
-        df.to_json(output_path, orient='records', indent=2)
-        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(rows, f, indent=2)
+            
         return output_path
     
     @staticmethod
     def xls_to_xlsx(input_path: str, output_dir: str) -> str:
-        """Convert legacy Excel (XLS) to modern Excel (XLSX)"""
+        """Convert legacy Excel (XLS) to modern Excel (XLSX) without Pandas"""
         filename = os.path.basename(input_path)
         name, _ = os.path.splitext(filename)
         output_path = os.path.join(output_dir, f"{name}.xlsx")
         
-        # Read with xlrd, write with openpyxl
-        df = pd.read_excel(input_path, engine='xlrd')
-        df.to_excel(output_path, index=False, engine='openpyxl')
+        wb_new = openpyxl.Workbook()
+        ws_new = wb_new.active
         
+        rb = xlrd.open_workbook(input_path)
+        sheet = rb.sheet_by_index(0)
+        
+        for row_idx in range(sheet.nrows):
+            ws_new.append(sheet.row_values(row_idx))
+            
+        wb_new.save(output_path)
         return output_path
