@@ -9,3 +9,22 @@ svglib
 requests
 
 python-docx
+PySide6
+markdown
+pyyaml
+xmltodict
+xhtml2pdf
+
+# Phase 1 Extensions
+pandas
+beautifulsoup4
+jsbeautifier
+cssbeautifier
+lxml
+openpyxl
+
+# Phase 2 Tier 1 Extensions
+xlrd
+python-pptx
+py7zr
+tomli

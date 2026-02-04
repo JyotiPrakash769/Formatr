@@ -29,10 +29,32 @@ def build():
         "--hidden-import=uvicorn.lifespan.off",
         "--hidden-import=fastapi",
         "--hidden-import=pyside6",
+        "--hidden-import=markdown",
+        "--hidden-import=yaml",
+        "--hidden-import=xmltodict",
+        "--hidden-import=xhtml2pdf",
+        "--hidden-import=reportlab.graphics.barcode.code128",
+        "--hidden-import=reportlab.graphics.barcode.code39",
+        "--hidden-import=reportlab.graphics.barcode.usps",
+        # Phase 1 hidden imports
+        "--hidden-import=pandas",
+        "--hidden-import=numpy",
+        "--hidden-import=openpyxl",
+        "--hidden-import=bs4",
+        "--hidden-import=jsbeautifier",
+        "--hidden-import=cssbeautifier",
+        # Phase 2 Tier 1 hidden imports
+        "--hidden-import=xlrd",
+        "--hidden-import=pptx",
+        "--hidden-import=py7zr",
+        "--hidden-import=tomli",
         "--collect-all=backend", 
         "--collect-all=pillow_heif",
-        "--collect-all=svglib",
+        "--collect-all=xhtml2pdf",
         "--collect-all=reportlab",
+        "--collect-all=pandas",
+        "--collect-all=openpyxl",
+        "--collect-all=py7zr",
         "run_app.py"
     ]
     

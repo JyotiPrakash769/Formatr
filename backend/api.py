@@ -8,8 +8,16 @@ from backend.core.pdf_processor import PDFProcessor
 from backend.core.av_processor import AVProcessor
 from backend.core.doc_processor import DocProcessor
 from backend.core.archive_processor import ArchiveProcessor
+from backend.core.dev_processor import DevProcessor
+from backend.core.smart_detector import SmartDetector
+from backend.core.data_processor import DataProcessor
+from backend.core.code_formatter import CodeFormatter
+from backend.core.office_processor import OfficeProcessor
+from backend.core.config_processor import ConfigProcessor
 
 import tempfile
+import struct
+from pydantic import BaseModel
 
 
 import subprocess
@@ -225,3 +233,407 @@ async def docx_to_image(file: UploadFile = File(...), format: str = Form("png"))
             
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+class AnalyzeRequest(BaseModel):
+    filename: str
+
+@router.post("/analyze")
+async def analyze_file(request: AnalyzeRequest):
+    return SmartDetector.analyze_file(request.filename)
+
+@router.post("/convert/archive")
+async def convert_archive(file: UploadFile = File(...), target_format: str = Form(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = ArchiveProcessor.convert_archive(temp_renamed, target_format, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/extract/images")
+async def extract_images(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        ext = os.path.splitext(file.filename)[1].lower()
+        output_paths = []
+        
+        if ext == '.pdf':
+            output_paths = PDFProcessor.convert_pdf_to_images(temp_renamed, "png") # Default to PNG
+        elif ext == '.docx':
+            output_paths = DocProcessor.extract_images_from_docx(temp_renamed, OUTPUT_DIR)
+        else:
+             return JSONResponse(status_code=400, content={"error": "Unsupported file type for image extraction"})
+
+        if not output_paths:
+             return JSONResponse(status_code=404, content={"error": "No images found in document"})
+
+        if len(output_paths) > 1:
+            zip_path = os.path.join(OUTPUT_DIR, f"{os.path.splitext(file.filename)[0]}_extracted_images.zip")
+            ArchiveProcessor.create_zip(output_paths, zip_path)
+            return FileResponse(zip_path, filename=os.path.basename(zip_path))
+        else:
+            return FileResponse(output_paths[0], filename=os.path.basename(output_paths[0]))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/extract/audio")
+async def extract_audio(file: UploadFile = File(...), format: str = Form("mp3")):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        # FFmpeg handles extraction if we just convert video to audio format
+        output_path = AVProcessor.convert_media(temp_renamed, format, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/dev/convert-config")
+async def dev_convert_config(file: UploadFile = File(...), target_format: str = Form(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DevProcessor.convert_config(input_path, target_format, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/dev/base64")
+async def dev_base64(file: UploadFile = File(...), action: str = Form(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        if action == 'encode':
+            output_path = DevProcessor.base64_encode(temp_renamed, OUTPUT_DIR)
+        else:
+            output_path = DevProcessor.base64_decode(temp_renamed, OUTPUT_DIR)
+            
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/dev/md-to-pdf")
+async def dev_md_to_pdf(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = DevProcessor.md_to_pdf(temp_renamed, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+class TranslationRequest(BaseModel):
+    source_lang: str
+    target_lang: str
+    code: str
+    api_key: str = None
+
+@router.post("/dev/translate")
+async def dev_translate(request: TranslationRequest):
+    try:
+        # In a real scenario, we would call an LLM API here.
+        # For this local demo, we will use basic regex replacement for "Hello World" style code 
+        # to demonstrate functionality without needing a real paid key.
+        
+        # NOTE: A real implementation requires `openai` or `google-generativeai` package.
+        
+        if request.api_key:
+             # Placeholder for Real API call
+             # response = client.chat.completions.create(...)
+             pass
+        
+        result = f"# SIMULATED TRANSLATION ({request.source_lang} -> {request.target_lang})\n"
+        result += f"# (To enable real translation, integrate an LLM provider)\n\n"
+        
+        input_code = request.code
+        
+        # Simple Regex Logic for Demo Purposes
+        if request.target_lang == "python":
+            result += input_code.replace("System.out.println", "print").replace("console.log", "print").replace(";", "")
+        elif request.target_lang == "javascript":
+            result += input_code.replace("print", "console.log").replace("System.out.println", "console.log")
+        elif request.target_lang == "java":
+            result += "public class Main {\n    public static void main(String[] args) {\n        "
+            result += input_code.replace("print", "System.out.println").replace("console.log", "System.out.println")
+            result += ";\n    }\n}"
+        else:
+            result += input_code
+            
+        return {"result": result}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ===== PHASE 1 ENDPOINTS =====
+
+@router.post("/convert/csv-to-json")
+async def convert_csv_to_json(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.csv_to_json(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/json-to-csv")
+async def convert_json_to_csv(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.json_to_csv(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/csv-to-excel")
+async def convert_csv_to_excel(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.csv_to_excel(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/excel-to-csv")
+async def convert_excel_to_csv(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.excel_to_csv(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/video-to-gif")
+async def convert_video_to_gif(file: UploadFile = File(...), fps: int = Form(10), width: int = Form(480)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = AVProcessor.video_to_gif(temp_renamed, OUTPUT_DIR, fps, width)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/beautify-js")
+async def beautify_js(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.beautify_js(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/minify-js")
+async def minify_js(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.minify_js(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/beautify-css")
+async def beautify_css(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.beautify_css(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/minify-css")
+async def minify_css(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.minify_css(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/beautify-html")
+async def beautify_html(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.beautify_html(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/format/minify-html")
+async def minify_html(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = CodeFormatter.minify_html(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/html-to-pdf")
+async def html_to_pdf(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        # Read HTML content
+        with open(temp_renamed, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # Convert to PDF using xhtml2pdf
+        from xhtml2pdf import pisa
+        output_path = os.path.join(OUTPUT_DIR, f"{os.path.splitext(file.filename)[0]}.pdf")
+        
+        with open(output_path, "wb") as pdf_file:
+            pisa_status = pisa.CreatePDF(html_content, dest=pdf_file)
+        
+        if pisa_status.err:
+            raise Exception("HTML to PDF conversion failed")
+        
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ===== PHASE 2 TIER 1 ENDPOINTS =====
+
+@router.post("/convert/excel-to-json")
+async def convert_excel_to_json(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.excel_to_json(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/xls-to-xlsx")
+async def convert_xls_to_xlsx(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = DataProcessor.xls_to_xlsx(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/extract/pptx-images")
+async def extract_pptx_images(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_folder = OfficeProcessor.extract_pptx_images(temp_renamed, OUTPUT_DIR)
+        
+        # Create a ZIP of the extracted images
+        import shutil
+        zip_path = shutil.make_archive(output_folder, 'zip', output_folder)
+        return FileResponse(zip_path, filename=os.path.basename(zip_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/extract/pptx-text")
+async def extract_pptx_text(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = OfficeProcessor.extract_pptx_text(temp_renamed, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/info/pptx")
+async def get_pptx_info(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = OfficeProcessor.get_pptx_info(temp_renamed, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/toml-to-json")
+async def convert_toml_to_json(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = ConfigProcessor.toml_to_json(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/toml-to-yaml")
+async def convert_toml_to_yaml(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = ConfigProcessor.toml_to_yaml(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/env-to-json")
+async def convert_env_to_json(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = ConfigProcessor.env_to_json(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/json-to-env")
+async def convert_json_to_env(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = ConfigProcessor.json_to_env(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/validate/env")
+async def validate_env(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        output_path = ConfigProcessor.validate_env(input_path, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/convert/7z-to-zip")
+async def convert_7z_to_zip(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_path = ArchiveProcessor.convert_7z_to_zip(temp_renamed, OUTPUT_DIR)
+        return FileResponse(output_path, filename=os.path.basename(output_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@router.post("/extract/7z")
+async def extract_7z(file: UploadFile = File(...)):
+    try:
+        input_path = save_upload(file)
+        temp_renamed = os.path.join(os.path.dirname(input_path), file.filename)
+        os.replace(input_path, temp_renamed)
+        
+        output_folder = ArchiveProcessor.extract_7z(temp_renamed, OUTPUT_DIR)
+        
+        # Create a ZIP of the extracted contents
+        import shutil
+        zip_path = shutil.make_archive(output_folder, 'zip', output_folder)
+        return FileResponse(zip_path, filename=os.path.basename(zip_path))
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+

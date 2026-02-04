@@ -19,16 +19,301 @@
         </header>
 
         <nav class="grid-nav">
-            <button class="nav-btn active" onclick="showPanel('images')">IMAGES</button>
+            <button class="nav-btn active" onclick="showPanel('home')">HOME</button>
+            <button class="nav-btn" onclick="showPanel('images')">IMAGES</button>
             <button class="nav-btn" onclick="showPanel('docs')">DOCS</button>
+            <button class="nav-btn" onclick="showPanel('archive')">ARCHIVE</button>
+            <button class="nav-btn" onclick="showPanel('data')">DATA</button>
+            <button class="nav-btn" onclick="showPanel('dev')">DEV</button>
             <button class="nav-btn" onclick="showPanel('cross')">CROSS</button>
             <button class="nav-btn" onclick="showPanel('audio')">AUDIO</button>
             <button class="nav-btn" onclick="showPanel('video')">VIDEO</button>
         </nav>
 
         <main id="content">
+            <!-- HOME PANEL (SMART DETECT) -->
+            <div id="panel-home" class="panel">
+                <div id="drop-zone" class="drop-zone" onclick="document.getElementById('smart-file-input').click()"
+                    ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                    <!-- Hidden input for click-to-select -->
+                    <input type="file" id="smart-file-input" style="display:none" onchange="handleSmartInput(this)">
+                    <div class="drop-content">
+                        <span style="font-size: 3rem;">📥</span>
+                        <h3>DROP FILE OR CLICK TO ANALYZE</h3>
+                        <p>AUTODETECTS FORMAT & SUGGESTS TOOLS</p>
+                    </div>
+                </div>
+
+                <div id="smart-actions" style="display: none; margin-top: 20px;">
+                    <h3>// RECOMMENDED ACTIONS <span id="smart-filename"
+                            style="color: var(--accent-color); font-size: 0.8em;"></span></h3>
+                    <div id="actions-grid" class="actions-grid">
+                        <!-- JS injects buttons here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ARCHIVE PANEL -->
+            <div id="panel-archive" class="panel" style="display:none;">
+                <h2>// ARCHIVE PROTOCOL</h2>
+                <div class="tool-group">
+                    <h3>CONVERT ARCHIVE</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/archive')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-arch-conv" class="hidden-input"
+                                accept=".zip,.tar,.gz,.7z,.rar" required onchange="updateLabel(this)">
+                            <label for="file-arch-conv" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="zip">ZIP</option>
+                            <option value="gztar">TAR.GZ</option>
+                            <option value="tar">TAR</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DATA PANEL -->
+            <div id="panel-data" class="panel" style="display:none;">
+                <h2>// DATA PROCESSING</h2>
+
+                <div class="tool-group">
+                    <h3>CSV → JSON</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/csv-to-json')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-csv-json" class="hidden-input" accept=".csv"
+                                required onchange="updateLabel(this)">
+                            <label for="file-csv-json" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE CSV FILE</span>
+                            </label>
+                        </div>
+                        <button type="submit">CONVERT TO JSON</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>JSON → CSV</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/json-to-csv')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-json-csv" class="hidden-input" accept=".json"
+                                required onchange="updateLabel(this)">
+                            <label for="file-json-csv" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE JSON FILE</span>
+                            </label>
+                        </div>
+                        <button type="submit">CONVERT TO CSV</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>CSV → EXCEL (XLSX)</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/csv-to-excel')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-csv-excel" class="hidden-input" accept=".csv"
+                                required onchange="updateLabel(this)">
+                            <label for="file-csv-excel" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE CSV FILE</span>
+                            </label>
+                        </div>
+                        <button type="submit">CONVERT TO EXCEL</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>EXCEL (XLSX) → CSV</h3>
+                    <form onsubmit="handleConvert(event, '/api/convert/excel-to-csv')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-excel-csv" class="hidden-input" accept=".xlsx,.xls"
+                                required onchange="updateLabel(this)">
+                            <label for="file-excel-csv" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE EXCEL FILE</span>
+                            </label>
+                        </div>
+                        <button type="submit">CONVERT TO CSV</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- DEV PANEL -->
+            <div id="panel-dev" class="panel" style="display:none;">
+                <h2>// DEVELOPER PROTOCOL</h2>
+
+                <!-- CODE TRANSLATOR -->
+                <div class="tool-group"
+                    style="border-color: var(--highlight-color); box-shadow: 4px 4px 0px var(--highlight-color);">
+                    <h3>AI CODE TRANSLATOR (EXPERIMENTAL)</h3>
+                    <p style="font-size: 0.8rem; margin-bottom: 1rem;">REQUIRES API KEY FOR SMART TRANSLATION. LOCAL
+                        MODE SUPPORTS BASIC SYNTAX ONLY.</p>
+                    <form onsubmit="handleTranslate(event)">
+                        <div style="grid-column: span 2; display: flex; gap: 1rem;">
+                            <select id="trans-source" style="flex:1">
+                                <option value="java">JAVA</option>
+                                <option value="python">PYTHON</option>
+                                <option value="javascript">JAVASCRIPT</option>
+                                <option value="cpp">C++</option>
+                            </select>
+                            <span style="align-self: center;">&rarr;</span>
+                            <select id="trans-target" style="flex:1">
+                                <option value="python">PYTHON</option>
+                                <option value="java">JAVA</option>
+                                <option value="javascript">JAVASCRIPT</option>
+                                <option value="cpp">C++</option>
+                            </select>
+                        </div>
+
+                        <div style="grid-column: span 2;">
+                            <label>API KEY (Optional - Leave empty for Regex):</label>
+                            <input type="password" id="api-key" placeholder="Gemini / OpenAI Key (Currently Simulated)"
+                                style="width: 100%;">
+                        </div>
+
+                        <div style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label>SOURCE CODE:</label>
+                                <textarea id="code-input"
+                                    style="width: 100%; height: 200px; background: var(--input-bg); color: var(--text-color); border: var(--border-width) solid var(--border-color); padding: 0.5rem; font-family: monospace; resize: vertical;"></textarea>
+                            </div>
+                            <div>
+                                <label>OUTPUT:</label>
+                                <textarea id="code-output" readonly
+                                    style="width: 100%; height: 200px; background: #eee; color: #000; border: var(--border-width) solid var(--border-color); padding: 0.5rem; font-family: monospace; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+
+                        <button type="submit"
+                            style="width: 100%; grid-column: span 2; background: var(--highlight-color); color: #fff;">TRANSLATE
+                            CODE</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>CONFIG CONVERTER</h3>
+                    <form onsubmit="handleConvert(event, '/api/dev/convert-config')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-dev-conf" class="hidden-input"
+                                accept=".json,.yaml,.yml,.xml" required onchange="updateLabel(this)">
+                            <label for="file-dev-conf" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE Config File</span>
+                            </label>
+                        </div>
+                        <label>TARGET FORMAT:</label>
+                        <select name="target_format">
+                            <option value="json">JSON</option>
+                            <option value="yaml">YAML</option>
+                            <option value="xml">XML</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>MARKDOWN TO PDF</h3>
+                    <form onsubmit="handleConvert(event, '/api/dev/md-to-pdf')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-dev-md" class="hidden-input" accept=".md" required
+                                onchange="updateLabel(this)">
+                            <label for="file-dev-md" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE Markdown (.md)</span>
+                            </label>
+                        </div>
+                        <button type="submit">CONVERT TO PDF</button>
+                    </form>
+                </div>
+
+                <div class="tool-group">
+                    <h3>BASE64 UTILS</h3>
+                    <form onsubmit="handleConvert(event, '/api/dev/base64')">
+                        <div class="file-upload-wrapper">
+                            <input type="file" name="file" id="file-dev-b64" class="hidden-input" required
+                                onchange="updateLabel(this)">
+                            <label for="file-dev-b64" class="custom-file-label">
+                                <span class="plus-symbol">+</span>
+                                <span class="file-name">CHOOSE A FILE</span>
+                            </label>
+                        </div>
+                        <label>ACTION:</label>
+                        <select name="action">
+                            <option value="encode">ENCODE TO TEXT</option>
+                            <option value="decode">DECODE TO FILE</option>
+                        </select>
+                        <button type="submit">EXECUTE</button>
+                    </form>
+                </div>
+<!-- CODE FORMATTING TOOLS -->
+<div class="tool-group" style="border-color: var(--highlight-color); box-shadow: 4px 4px 0px var(--highlight-color);">
+    <h3>JAVASCRIPT FORMATTER</h3>
+    <form onsubmit="handleCodeFormat(event, 'js')">
+        <div class="file-upload-wrapper">
+            <input type="file" name="file" id="file-js-format" class="hidden-input" accept=".js" required
+                onchange="updateLabel(this)">
+            <label for="file-js-format" class="custom-file-label">
+                <span class="plus-symbol">+</span>
+                <span class="file-name">CHOOSE JS FILE</span>
+            </label>
+        </div>
+        <label>ACTION:</label>
+        <select name="action" id="js-action">
+            <option value="beautify">BEAUTIFY / PRETTIFY</option>
+            <option value="minify">MINIFY</option>
+        </select>
+        <button type="submit">FORMAT</button>
+    </form>
+</div>
+
+<div class="tool-group" style="border-color: var(--highlight-color); box-shadow: 4px 4px 0px var(--highlight-color);">
+    <h3>CSS FORMATTER</h3>
+    <form onsubmit="handleCodeFormat(event, 'css')">
+        <div class="file-upload-wrapper">
+            <input type="file" name="file" id="file-css-format" class="hidden-input" accept=".css" required
+                onchange="updateLabel(this)">
+            <label for="file-css-format" class="custom-file-label">
+                <span class="plus-symbol">+</span>
+                <span class="file-name">CHOOSE CSS FILE</span>
+            </label>
+        </div>
+        <label>ACTION:</label>
+        <select name="action" id="css-action">
+            <option value="beautify">BEAUTIFY / PRETTIFY</option>
+            <option value="minify">MINIFY</option>
+        </select>
+        <button type="submit">FORMAT</button>
+    </form>
+</div>
+
+<div class="tool-group" style="border-color: var(--highlight-color); box-shadow: 4px 4px 0px var(--highlight-color);">
+    <h3>HTML FORMATTER</h3>
+    <form onsubmit="handleCodeFormat(event, 'html')">
+        <div class="file-upload-wrapper">
+            <input type="file" name="file" id="file-html-format" class="hidden-input" accept=".html,.htm" required
+                onchange="updateLabel(this)">
+            <label for="file-html-format" class="custom-file-label">
+                <span class="plus-symbol">+</span>
+                <span class="file-name">CHOOSE HTML FILE</span>
+            </label>
+        </div>
+        <label>ACTION:</label>
+        <select name="action" id="html-action">
+            <option value="beautify">BEAUTIFY / PRETTIFY</option>
+            <option value="minify">MINIFY</option>
+            <option value="to-pdf">CONVERT TO PDF</option>
+        </select>
+        <button type="submit">FORMAT</button>
+    </form>
+</div>            </div>
+
             <!-- IMAGE PANEL -->
-            <div id="panel-images" class="panel">
+            <div id="panel-images" class="panel" style="display:none;">
                 <h2>// IMAGE PROTOCOL</h2>
                 <div class="tool-group">
                     <h3>CONVERT</h3>

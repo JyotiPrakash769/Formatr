@@ -336,8 +336,381 @@ checkHealth();
 setInterval(checkHealth, 5000);
 
 // Show first panel by default (manual click simulation)
-const firstBtn = document.querySelector('.nav-btn');
-if (firstBtn) {
-    showPanel('images'); // Default logic
-    firstBtn.classList.add('active');
+// Changed to Home
+showPanel('home');
+
+let currentDroppedFile = null;
+
+async function handleTranslate(e) {
+    e.preventDefault();
+    const source = document.getElementById('trans-source').value;
+    const target = document.getElementById('trans-target').value;
+    const code = document.getElementById('code-input').value;
+    const apiKey = document.getElementById('api-key').value;
+    const outputArea = document.getElementById('code-output');
+
+    if (!code) {
+        showToast("PLEASE ENTER CODE");
+        return;
+    }
+
+    outputArea.value = "TRANSLATING...";
+
+    try {
+        const response = await fetch('/api/dev/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_lang: source,
+                target_lang: target,
+                code: code,
+                api_key: apiKey
+            })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            outputArea.value = data.result;
+            showToast("TRANSLATION COMPLETE");
+        } else {
+            outputArea.value = "ERROR: " + data.error;
+            showToast("FAILED");
+        }
+    } catch (e) {
+        outputArea.value = "SYSTEM ERROR";
+        showToast("ERROR: " + e.message);
+    }
+}
+
+async function handleCodeFormat(e, type) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const action = formData.get('action');
+
+    let url = '';
+    if (type === 'js') {
+        url = action === 'beautify' ? '/api/format/beautify-js' : '/api/format/minify-js';
+    } else if (type === 'css') {
+        url = action === 'beautify' ? '/api/format/beautify-css' : '/api/format/minify-css';
+    } else if (type === 'html') {
+        if (action === 'to-pdf') {
+            url = '/api/convert/html-to-pdf';
+        } else {
+            url = action === 'beautify' ? '/api/format/beautify-html' : '/api/format/minify-html';
+        }
+    }
+
+    if (!url) {
+        showToast("INVALID ACTION");
+        return;
+    }
+
+    showToast("PROCESSING...");
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+
+            const disp = response.headers.get('content-disposition');
+            let filename = "formatted_file";
+            if (disp && disp.includes("filename=")) {
+                filename = disp.split("filename=")[1].split(";")[0].replace(/"/g, "");
+            }
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast("SUCCESS");
+            form.reset();
+            updateAllLabels();
+        } else {
+            const err = await response.json();
+            showToast("ERROR: " + (err.error || "Failed"));
+        }
+    } catch (e) {
+        showToast("ERROR: " + e.message);
+    }
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.add('drag-active');
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.remove('drag-active');
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('drop-zone').classList.remove('drag-active');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        currentDroppedFile = files[0];
+        document.getElementById('drop-zone').style.display = 'none';
+        document.getElementById('smart-actions').style.display = 'block';
+        document.getElementById('smart-filename').textContent = currentDroppedFile.name;
+
+        await analyzeFile(currentDroppedFile.name);
+    }
+}
+
+async function handleSmartInput(input) {
+    if (input.files && input.files.length > 0) {
+        currentDroppedFile = input.files[0];
+        document.getElementById('drop-zone').style.display = 'none';
+        document.getElementById('smart-actions').style.display = 'block';
+        document.getElementById('smart-filename').textContent = currentDroppedFile.name;
+
+        await analyzeFile(currentDroppedFile.name);
+    }
+}
+
+async function analyzeFile(filename) {
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: filename })
+        });
+        const data = await response.json();
+        renderActions(data.actions);
+    } catch (e) {
+        log("ERROR ANALYZING FILE");
+    }
+}
+
+function renderActions(actions) {
+    const grid = document.getElementById('actions-grid');
+    grid.innerHTML = '';
+
+    actions.forEach(action => {
+        const btn = document.createElement('div');
+        btn.className = 'action-card';
+        btn.textContent = action.name;
+        btn.onclick = () => executeSmartAction(action); // Pass full action object
+        grid.appendChild(btn);
+    });
+
+    // Add "Reset" button
+    const reset = document.createElement('div');
+    reset.className = 'action-card';
+    reset.textContent = "RESET / NEW FILE";
+    reset.style.background = "#fff";
+    reset.style.color = "#000";
+    reset.onclick = () => {
+        currentDroppedFile = null;
+        document.getElementById('drop-zone').style.display = 'flex';
+        document.getElementById('smart-actions').style.display = 'none';
+        grid.innerHTML = '';
+    };
+    grid.appendChild(reset);
+}
+
+async function executeSmartAction(action) {
+    if (!currentDroppedFile) return;
+
+    // Use FormData to send file
+    const formData = new FormData();
+    formData.append('file', currentDroppedFile);
+
+    let url = '';
+
+    // Map Action ID to API Endpoints
+    switch (action.id) {
+        case 'convert_image':
+            const fmt = prompt("Enter Format (png, jpg, webp, pdf):", "png");
+            if (!fmt) return;
+            url = '/api/convert/image';
+            formData.append('target_format', fmt);
+            break;
+        case 'image_to_pdf':
+            url = '/api/convert/image-to-pdf';
+            break;
+        case 'image_to_docx':
+            url = '/api/convert/image-to-docx';
+            break;
+        case 'resize_image':
+            showPanel('images');
+            alert("PLEASE USE THE RESIZE TOOL IN THE IMAGES TAB");
+            return;
+        case 'compress_image':
+            url = '/api/compress/image';
+            const size = prompt("Target Size (KB):", "500");
+            formData.append('size_kb', size || 500);
+            break;
+        case 'compress_pdf':
+            url = '/api/compress/pdf';
+            formData.append('level', 'medium');
+            break;
+        case 'pdf_to_image':
+            url = '/api/convert/pdf-to-image';
+            formData.append('format', 'png');
+            break;
+        case 'doc_to_pdf':
+            url = '/api/convert/doc';
+            formData.append('target_format', 'pdf');
+            break;
+        case 'extract_audio':
+            url = '/api/extract/audio';
+            formData.append('format', 'mp3');
+            break;
+        case 'convert_video':
+            const vfmt = prompt("Target format (mp4, mkv, avi):", "mp4");
+            url = '/api/convert/media';
+            formData.append('target_format', vfmt || 'mp4');
+            break;
+        case 'convert_audio':
+            const afmt = prompt("Target format (mp3, wav):", "mp3");
+            url = '/api/convert/media';
+            formData.append('target_format', afmt || 'mp3');
+            break;
+        case 'convert_archive':
+            const arfmt = prompt("Target format (zip, tar, gztar):", "zip");
+            if (!arfmt) return;
+            url = '/api/convert/archive';
+            formData.append('target_format', arfmt);
+            break;
+        case 'md_to_pdf':
+            url = '/api/dev/md-to-pdf';
+            break;
+        case 'convert_config':
+            const cfmt = prompt("Target format (json, yaml, xml):", "json");
+            if (!cfmt) return;
+            url = '/api/dev/convert-config';
+            formData.append('target_format', cfmt);
+            break;
+        case 'base64_encode':
+            url = '/api/dev/base64';
+            formData.append('action', 'encode');
+            break;
+        case 'base64_decode':
+            url = '/api/dev/base64';
+            formData.append('action', 'decode');
+            break;
+        // PHASE 1 ADDITIONS
+        case 'csv_to_json':
+            url = '/api/convert/csv-to-json';
+            break;
+        case 'json_to_csv':
+            url = '/api/convert/json-to-csv';
+            break;
+        case 'csv_to_excel':
+            url = '/api/convert/csv-to-excel';
+            break;
+        case 'video_to_gif':
+            const gifFps = prompt("FPS (frames per second, 5-15 recommended):", "10");
+            const gifWidth = prompt("Width in pixels (480-720 recommended):", "480");
+            url = '/api/convert/video-to-gif';
+            formData.append('fps', gifFps || 10);
+            formData.append('width', gifWidth || 480);
+            break;
+        case 'beautify_js':
+            url = '/api/format/beautify-js';
+            break;
+        case 'minify_js':
+            url = '/api/format/minify-js';
+            break;
+        case 'beautify_css':
+            url = '/api/format/beautify-css';
+            break;
+        case 'minify_css':
+            url = '/api/format/minify-css';
+            break;
+        case 'beautify_html':
+            url = '/api/format/beautify-html';
+            break;
+        case 'minify_html':
+            url = '/api/format/minify-html';
+            break;
+        case 'html_to_pdf':
+            url = '/api/convert/html-to-pdf';
+            break;
+
+        // Phase 2 Tier 1 Actions
+        case 'excel_to_csv':
+            url = '/api/convert/excel-to-csv';
+            break;
+        case 'excel_to_json':
+            url = '/api/convert/excel-to-json';
+            break;
+        case 'xls_to_xlsx':
+            url = '/api/convert/xls-to-xlsx';
+            break;
+        case 'extract_pptx_images':
+            url = '/api/extract/pptx-images';
+            break;
+        case 'extract_pptx_text':
+            url = '/api/extract/pptx-text';
+            break;
+        case 'pptx_info':
+            url = '/api/info/pptx';
+            break;
+        case 'toml_to_json':
+            url = '/api/convert/toml-to-json';
+            break;
+        case 'toml_to_yaml':
+            url = '/api/convert/toml-to-yaml';
+            break;
+        case 'env_to_json':
+            url = '/api/convert/env-to-json';
+            break;
+        case 'validate_env':
+            url = '/api/validate/env';
+            break;
+        case '7z_to_zip':
+            url = '/api/convert/7z-to-zip';
+            break;
+
+        default:
+            if (action.id.startsWith('extract')) {
+                url = '/api/extract/images';
+            } else {
+                alert("Automated action not linked. Please use specific tab.");
+                return;
+            }
+    }
+
+    if (url) {
+        showToast(`EXECUTING: ${action.name}`);
+        // Send request
+        try {
+            const response = await fetch(url, { method: 'POST', body: formData });
+            if (response.ok) {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                // Get filename header
+                const disp = response.headers.get('content-disposition');
+                let filename = "output";
+                if (disp && disp.includes("filename=")) {
+                    filename = disp.split("filename=")[1].split(";")[0].replace(/"/g, "");
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast("SUCCESS");
+            } else {
+                const err = await response.json();
+                showToast("ERROR: " + (err.error || "Failed"));
+            }
+        } catch (e) {
+            showToast("ERROR: " + e.message);
+        }
+    }
 }

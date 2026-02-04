@@ -2,7 +2,11 @@ import os
 import subprocess
 import shutil
 import sys
+import platform
 from docx2pdf import convert
+from docx import Document
+from docx.shared import Inches
+import zipfile
 
 class DocProcessor:
     @staticmethod
@@ -57,3 +61,26 @@ class DocProcessor:
         doc.save(output_path)
         
         return output_path
+
+    @staticmethod
+    def extract_images_from_docx(docx_path: str, output_dir: str) -> list[str]:
+        """
+        Extract all images from a DOCX file (unzipping it).
+        """
+        image_paths = []
+        name = os.path.splitext(os.path.basename(docx_path))[0]
+        
+        with zipfile.ZipFile(docx_path, 'r') as zip_ref:
+            for file in zip_ref.namelist():
+                if file.startswith('word/media/'):
+                    # Extract to output dir
+                    source = zip_ref.open(file)
+                    target_name = f"{name}_{os.path.basename(file)}"
+                    target_path = os.path.join(output_dir, target_name)
+                    
+                    with open(target_path, "wb") as f:
+                        shutil.copyfileobj(source, f)
+                    
+                    image_paths.append(target_path)
+                    
+        return image_paths

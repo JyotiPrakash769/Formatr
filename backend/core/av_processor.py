@@ -60,3 +60,45 @@ class AVProcessor:
             raise RuntimeError(f"FFmpeg compression failed: {process.stderr.decode()}")
             
         return output_path
+    
+    @staticmethod
+    def video_to_gif(file_path: str, output_dir: str, fps: int = 10, width: int = 480) -> str:
+        """
+        Convert video to optimized GIF with palette generation.
+        fps: frames per second (lower = smaller file)
+        width: output width in pixels (height auto-scaled)
+        """
+        AVProcessor.check_ffmpeg()
+        
+        filename = os.path.basename(file_path)
+        name_no_ext = os.path.splitext(filename)[0]
+        output_path = os.path.join(output_dir, f"{name_no_ext}.gif")
+        palette_path = os.path.join(output_dir, f"{name_no_ext}_palette.png")
+        
+        try:
+            # Step 1: Generate palette for better quality
+            palette_cmd = [
+                "ffmpeg", "-i", file_path,
+                "-vf", f"fps={fps},scale={width}:-1:flags=lanczos,palettegen",
+                "-y", palette_path
+            ]
+            subprocess.run(palette_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # Step 2: Create GIF using palette
+            gif_cmd = [
+                "ffmpeg", "-i", file_path, "-i", palette_path,
+                "-lavfi", f"fps={fps},scale={width}:-1:flags=lanczos[x];[x][1:v]paletteuse",
+                "-y", output_path
+            ]
+            subprocess.run(gif_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            
+            # Cleanup palette
+            if os.path.exists(palette_path):
+                os.remove(palette_path)
+            
+            return output_path
+        except subprocess.CalledProcessError as e:
+            if os.path.exists(palette_path):
+                os.remove(palette_path)
+            raise RuntimeError(f"Video to GIF conversion failed: {e.stderr.decode()}")
+
